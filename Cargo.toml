@@ -1,0 +1,24 @@
+[package]
+name = "refl"
+version = "0.1.0"
+authors = ["Mazdak Farrokhzad"]
+license = "MIT/Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/Centril/refl"
+documentation = "https://docs.rs/refl"
+keywords = ["refl", "propositional", "equality", "type-level"]
+
+description = """
+Provides a `refl` encoding which you can use to provide a proof
+witness that one type is equivalent (identical) to another type.
+You can use this to encode a subset of what GADTs allow you to in Haskell.
+"""
+
+[dependencies]
+
+[badges]
+travis-ci = { repository = "Centril/refl" }
+
+[features]
+
+no_std = []
