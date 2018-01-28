@@ -241,6 +241,11 @@ impl<X: ?Sized> Default for Id<X, X> {
     fn default() -> Self { refl() }
 }
 
+// Id only consists of a PhantomData, which is a ZST.
+// ZSTs can always be sent across threads and shared between them.
+unsafe impl<A: ?Sized, B: ?Sized> Sync for Id<A, B> {}
+unsafe impl<A: ?Sized, B: ?Sized> Send for Id<A, B> {}
+
 /// We mark this unsafe since direct usage in exposed code would make
 /// `.cast()` unsafe. The only safe way to construct `Id` is with `refl`.
 unsafe fn unsafe_id<S: ?Sized, T: ?Sized>() -> Id<S, T> {
