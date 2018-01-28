@@ -140,7 +140,7 @@ pub fn refl<T: ?Sized>() -> Id<T, T> { unsafe { unsafe_id() } }
 /// could, which we would if we had covariance, we could define
 /// the following unsafe function in safe Rust:
 ///
-/// ```rust, ignore
+/// ```ignore
 /// fn transmute_lifetime<'a, 'b, T: 'a + 'b>(r: &'a T) -> &'b T {
 ///     refl().cast(r)
 /// }
