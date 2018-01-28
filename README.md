@@ -8,7 +8,11 @@ witness that one type is equivalent (identical) to another type.
 You can use this to encode a subset of what GADTs allow you to in Haskell.
 
 This is encoded as:
+
 ```rust
+use std::mem;
+use std::marker::PhantomData;
+
 pub struct Id<S: ?Sized, T: ?Sized>(PhantomData<(*mut S, *mut T)>);
 
 pub fn refl<T: ?Sized>() -> Id<T, T> { Id(PhantomData) }
@@ -37,7 +41,7 @@ impl<S: ?Sized, T: ?Sized> Id<S, T> {
 }
 ```
 
-In Haskell, this type would correspond to:
+In Haskell, the `Id<A, B>` type corresponds to:
 
 ```haskell
 data a :~: b where
@@ -47,6 +51,13 @@ data a :~: b where
 However, note that you must do the casting manually with `refl.cast(val)`.
 Rust will not know that `S == T` by just pattern matching on `Id<S, T>`
 (which you can't do).
+
+# Limitations
+
+Please note that Rust has no concept of higher kinded types (HKTs) and so
+we can not provide the general transformation `F<S> -> F<T>` given that
+`S == T`. With the introduction of generic associated types (GATs), it
+may be possible to introduce more transformations.
 
 # Example - A GADT-encoded expression type
 
