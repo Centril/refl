@@ -19,7 +19,9 @@
 //!
 //! pub struct Id<S: ?Sized, T: ?Sized>(PhantomData<(*mut S, *mut T)>);
 //!
-//! pub fn refl<T: ?Sized>() -> Id<T, T> { Id(PhantomData) }
+//! impl<T: ?Sized> Id<T, T> { pub const REFL: Self = Id(PhantomData); }
+//!
+//! pub fn refl<T: ?Sized>() -> Id<T, T> { Id::REFL }
 //!
 //! impl<S: ?Sized, T: ?Sized> Id<S, T> {
 //!     /// Casts a value of type `S` to `T`.
@@ -86,8 +88,6 @@
 //!     If(Box<Expr<Bool>>, Box<Expr<T>>, Box<Expr<T>>),
 //! }
 //!
-//! fn lit<T: Ty>(lit: T::Repr) -> Box<Expr<T>> { Box::new(Expr::Lit(lit)) }
-//!
 //! fn eval<T: Ty>(expr: &Expr<T>) -> T::Repr {
 //!     match *expr {
 //!         Expr::Lit(ref val) =>
@@ -126,9 +126,18 @@ extern crate core as std;
 use std::mem;
 use std::marker::PhantomData;
 
-/// Construct a proof witness of the fact that a
-/// type is nominally equivalent to itself.
-pub fn refl<T: ?Sized>() -> Id<T, T> { unsafe { unsafe_id() } }
+/// Construct a proof witness of the fact that a type is equivalent to itself.
+///
+/// For a `const` version of this, use `Id::REFL`.
+pub fn refl<T: ?Sized>() -> Id<T, T> { Id::REFL }
+
+impl<T: ?Sized> Id<T, T> {
+    /// A proof witness of the fact that a type is equivalent to itself.
+    ///
+    /// The benefit of this version compared to `refl()` is that this
+    /// is usable in `const` contexts while `refl()` can't.
+    pub const REFL: Self = Id(PhantomData);
+}
 
 /// A proof term that `S` and `T` are the same type (type identity).
 /// This type is only every inhabited when S is nominally equivalent to T.
@@ -147,8 +156,10 @@ pub fn refl<T: ?Sized>() -> Id<T, T> { unsafe { unsafe_id() } }
 /// ```
 ///
 /// See
-/// + https://doc.rust-lang.org/nightly/nomicon/phantom-data.html
-/// + https://doc.rust-lang.org/beta/nomicon/subtyping.html
+///
+/// - <https://doc.rust-lang.org/nightly/nomicon/phantom-data.html>
+/// - <https://doc.rust-lang.org/beta/nomicon/subtyping.html>
+///
 /// for more information on variance.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Id<S: ?Sized, T: ?Sized>(PhantomData<(*mut S, *mut T)>);
@@ -178,13 +189,11 @@ impl<S: ?Sized, T: ?Sized> Id<S, T> {
     }
 
     /// Converts `Id<S, T>` into `Id<T, S>` since type equality is symmetric.
-    pub fn sym(self) -> Id<T, S> { unsafe { unsafe_id() } }
+    pub fn sym(self) -> Id<T, S> { Id(PhantomData) }
 
     /// If you have proofs `Id<S, T>` and `Id<T, U>` you can conclude `Id<S, U>`
     /// since type equality is transitive.
-    pub fn trans<U: ?Sized>(self, _: Id<T, U>) -> Id<S, U> {
-        unsafe { unsafe_id() }
-    }
+    pub fn trans<U: ?Sized>(self, _: Id<T, U>) -> Id<S, U> { Id(PhantomData) }
 
     /// Casts a value of type `&S` to `&T` where `S == T`.
     ///
@@ -238,16 +247,10 @@ impl<S: ?Sized, T: ?Sized> Id<S, T> {
 }
 
 impl<X: ?Sized> Default for Id<X, X> {
-    fn default() -> Self { refl() }
+    fn default() -> Self { Id::REFL }
 }
 
 // Id only consists of a PhantomData, which is a ZST.
 // ZSTs can always be sent across threads and shared between them.
 unsafe impl<A: ?Sized, B: ?Sized> Sync for Id<A, B> {}
 unsafe impl<A: ?Sized, B: ?Sized> Send for Id<A, B> {}
-
-/// We mark this unsafe since direct usage in exposed code would make
-/// `.cast()` unsafe. The only safe way to construct `Id` is with `refl`.
-unsafe fn unsafe_id<S: ?Sized, T: ?Sized>() -> Id<S, T> {
-    Id(PhantomData)
-}
