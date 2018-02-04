@@ -15,7 +15,9 @@ use std::marker::PhantomData;
 
 pub struct Id<S: ?Sized, T: ?Sized>(PhantomData<(*mut S, *mut T)>);
 
-pub fn refl<T: ?Sized>() -> Id<T, T> { Id(PhantomData) }
+impl<T: ?Sized> Id<T, T> { pub const REFL: Self = Id(PhantomData); }
+
+pub fn refl<T: ?Sized>() -> Id<T, T> { Id::REFL }
 
 impl<S: ?Sized, T: ?Sized> Id<S, T> {
     /// Casts a value of type `S` to `T`.
@@ -81,8 +83,6 @@ enum Expr<T: Ty> {
     Add(Id<usize, T::Repr>, Box<Expr<Int>>, Box<Expr<Int>>),
     If(Box<Expr<Bool>>, Box<Expr<T>>, Box<Expr<T>>),
 }
-
-fn lit<T: Ty>(lit: T::Repr) -> Box<Expr<T>> { Box::new(Expr::Lit(lit)) }
 
 fn eval<T: Ty>(expr: &Expr<T>) -> T::Repr {
     match *expr {
