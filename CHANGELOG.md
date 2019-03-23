@@ -1,3 +1,7 @@
+## 0.1.3
+
+- Relaxed bounds on various implemented traits for `Id<A, B>`.
+
 ## 0.1.2
 
 ## New additions
