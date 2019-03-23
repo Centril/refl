@@ -245,6 +245,15 @@ impl<S: ?Sized, T: ?Sized> Id<S, T> {
     // but we can't do it for all functors...
 }
 
+impl<X: ?Sized> Default for Id<X, X> {
+    fn default() -> Self { Id::REFL }
+}
+
+// Id only consists of a PhantomData, which is a ZST.
+// ZSTs can always be sent across threads and shared between them.
+unsafe impl<A: ?Sized, B: ?Sized> Sync for Id<A, B> {}
+unsafe impl<A: ?Sized, B: ?Sized> Send for Id<A, B> {}
+
 impl<S: ?Sized, T: ?Sized> Copy for Id<S, T> {}
 
 impl<S: ?Sized, T: ?Sized> Clone for Id<S, T> {
@@ -256,10 +265,6 @@ impl<S: ?Sized, T: ?Sized> std::fmt::Debug for Id<S, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "Id({:?})", self.0)
     }
-}
-
-impl<X: ?Sized> Default for Id<X, X> {
-    fn default() -> Self { Id::REFL }
 }
 
 impl<S: ?Sized, T: ?Sized> std::hash::Hash for Id<S, T> {
@@ -284,8 +289,3 @@ impl<S: ?Sized, T: ?Sized> std::cmp::Ord for Id<S, T> {
         std::cmp::Ordering::Equal
     }
 }
-
-// Id only consists of a PhantomData, which is a ZST.
-// ZSTs can always be sent across threads and shared between them.
-unsafe impl<A: ?Sized, B: ?Sized> Sync for Id<A, B> {}
-unsafe impl<A: ?Sized, B: ?Sized> Send for Id<A, B> {}
