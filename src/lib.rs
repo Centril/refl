@@ -161,7 +161,6 @@ impl<T: ?Sized> Id<T, T> {
 /// - <https://doc.rust-lang.org/beta/nomicon/subtyping.html>
 ///
 /// for more information on variance.
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Id<S: ?Sized, T: ?Sized>(PhantomData<(*mut S, *mut T)>);
 
 impl<S: ?Sized, T: ?Sized> Id<S, T> {
@@ -246,8 +245,44 @@ impl<S: ?Sized, T: ?Sized> Id<S, T> {
     // but we can't do it for all functors...
 }
 
+impl<S: ?Sized, T: ?Sized> Copy for Id<S, T> {}
+
+impl<S: ?Sized, T: ?Sized> Clone for Id<S, T> {
+    fn clone(&self) -> Self { Id(PhantomData) }
+    fn clone_from(&mut self, _source: &Self) {}
+}
+
+impl<S: ?Sized, T: ?Sized> std::fmt::Debug for Id<S, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Id({:?})", self.0)
+    }
+}
+
 impl<X: ?Sized> Default for Id<X, X> {
     fn default() -> Self { Id::REFL }
+}
+
+impl<S: ?Sized, T: ?Sized> std::hash::Hash for Id<S, T> {
+    fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {}
+}
+
+impl<S: ?Sized, T: ?Sized> std::cmp::PartialEq for Id<S, T> {
+    fn eq(&self, _other: &Self) -> bool { true }
+    fn ne(&self, _other: &Self) -> bool { false }
+}
+
+impl<S: ?Sized, T: ?Sized> std::cmp::Eq for Id<S, T> {}
+
+impl<S: ?Sized, T: ?Sized> std::cmp::PartialOrd for Id<S, T> {
+    fn partial_cmp(&self, _other: &Self) -> Option<std::cmp::Ordering> {
+        Some(std::cmp::Ordering::Equal)
+    }
+}
+
+impl<S: ?Sized, T: ?Sized> std::cmp::Ord for Id<S, T> {
+    fn cmp(&self, _other: &Self) -> std::cmp::Ordering {
+        std::cmp::Ordering::Equal
+    }
 }
 
 // Id only consists of a PhantomData, which is a ZST.
