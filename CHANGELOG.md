@@ -1,3 +1,9 @@
+## 0.2.0
+
+- Migrated to edition 2018. Rust 1.32 is now required.
+- `refl` is now a `const fn`.
+- `#![no_std]` is unconditionally applied and requires cargo features.
+
 ## 0.1.3
 
 - Relaxed bounds on various implemented traits for `Id<A, B>`.

@@ -7,17 +7,19 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#![no_std]
+
 //! Provides a `refl` encoding which you can use to provide a proof
 //! witness that one type is equivalent (identical) to another type.
-//! You can use this to encode a subset of what GADTs allow you to in Haskell.
+//! This can be used to encode a subset of what GADTs allow you to in Haskell.
 //!
 //! This is encoded as:
 //!
 //! ```rust
-//! use std::mem;
-//! use std::marker::PhantomData;
+//! use core::mem;
+//! use core::marker::PhantomData;
 //!
-//! pub struct Id<S: ?Sized, T: ?Sized>(PhantomData<(*mut S, *mut T)>);
+//! pub struct Id<S: ?Sized, T: ?Sized>(PhantomData<(fn(S) -> S, fn(T) -> T)>);
 //!
 //! impl<T: ?Sized> Id<T, T> { pub const REFL: Self = Id(PhantomData); }
 //!
@@ -34,11 +36,11 @@
 //!             // This is safe since we know by construction that
 //!             // S == T (including lifetime invariance) always holds.
 //!             let cast_value = mem::transmute_copy(&value);
-//!     
+//!
 //!             // Forget the value;
 //!             // otherwise the destructor of S would be run.
 //!             mem::forget(value);
-//!     
+//!
 //!             cast_value
 //!         }
 //!     }
@@ -56,7 +58,7 @@
 //!
 //! However, note that you must do the casting manually with `refl.cast(val)`.
 //! Rust will not know that `S == T` by just pattern matching on `Id<S, T>`
-//! (which you can't do).
+//! (which you cannot do).
 //!
 //! # Limitations
 //!
@@ -68,10 +70,9 @@
 //! # Example - A GADT-encoded expression type
 //!
 //! ```rust
-//! extern crate refl;
 //! use refl::*;
 //!
-//! trait Ty { type Repr: Copy + ::std::fmt::Debug; }
+//! trait Ty { type Repr: Copy + core::fmt::Debug; }
 //!
 //! #[derive(Debug)]
 //! struct Int;
@@ -85,17 +86,14 @@
 //! enum Expr<T: Ty> {
 //!     Lit(T::Repr),
 //!     Add(Id<usize, T::Repr>, Box<Expr<Int>>, Box<Expr<Int>>),
-//!     If(Box<Expr<Bool>>, Box<Expr<T>>, Box<Expr<T>>),
+//!     If(Box<Expr<Bool>>, Box<Self>, Box<Self>),
 //! }
 //!
 //! fn eval<T: Ty>(expr: &Expr<T>) -> T::Repr {
-//!     match *expr {
-//!         Expr::Lit(ref val) =>
-//!             *val,
-//!         Expr::Add(ref refl, ref l, ref r) =>
-//!             refl.cast(eval(&*l) + eval(&*r)),
-//!         Expr::If(ref c, ref i, ref e) =>
-//!             if eval(&*c) { eval(&*i) } else { eval(&*e) },
+//!     match expr {
+//!         Expr::Lit(val) => *val,
+//!         Expr::Add(refl, l, r) => refl.cast(eval(l) + eval(r)),
+//!         Expr::If(c, i, e) => if eval(c) { eval(i) } else { eval(e) },
 //!     }
 //! }
 //!
@@ -115,39 +113,33 @@
 //! }
 //! ```
 
-#![cfg_attr(feature = "no_std", no_std)]
-#[cfg(feature = "no_std")]
-extern crate core as std;
-
 //==============================================================================
 // Type equality witnesses for GADTs
 //==============================================================================
 
-use std::mem;
-use std::marker::PhantomData;
+use core::{cmp, fmt, hash, mem, marker::PhantomData};
 
 /// Construct a proof witness of the fact that a type is equivalent to itself.
 ///
-/// For a `const` version of this, use `Id::REFL`.
-pub fn refl<T: ?Sized>() -> Id<T, T> { Id::REFL }
+/// This is equivalent to `Id::REFL`.
+pub const fn refl<T: ?Sized>() -> Id<T, T> { Id::REFL }
 
 impl<T: ?Sized> Id<T, T> {
     /// A proof witness of the fact that a type is equivalent to itself.
     ///
-    /// The benefit of this version compared to `refl()` is that this
-    /// is usable in `const` contexts while `refl()` can't.
-    pub const REFL: Self = Id(PhantomData);
+    /// This is equivalent to `refl()`.
+    pub const REFL: Self = Self(PhantomData);
 }
 
 /// A proof term that `S` and `T` are the same type (type identity).
-/// This type is only every inhabited when S is nominally equivalent to T.
+/// This type is only ever inhabited when S is nominally equivalent to T.
 ///
 /// ## A note on variance and safety
 ///
-/// S and T are invariant, here, this means that for two, possibly disjoint,
-/// lifetimes `'a`, `'b` we can not construct an `Id<&'a T, &'b T>`. If we
+/// S and T are invariant here. This means that for two, possibly disjoint,
+/// lifetimes `'a`, `'b` we cannot construct an `Id<&'a T, &'b T>`. If we
 /// could, which we would if we had covariance, we could define
-/// the following unsafe function in safe Rust:
+/// the following unsound function in safe Rust:
 ///
 /// ```ignore
 /// fn transmute_lifetime<'a, 'b, T: 'a + 'b>(r: &'a T) -> &'b T {
@@ -161,7 +153,7 @@ impl<T: ?Sized> Id<T, T> {
 /// - <https://doc.rust-lang.org/beta/nomicon/subtyping.html>
 ///
 /// for more information on variance.
-pub struct Id<S: ?Sized, T: ?Sized>(PhantomData<(*mut S, *mut T)>);
+pub struct Id<S: ?Sized, T: ?Sized>(PhantomData<(fn(S) -> S, fn(T) -> T)>);
 
 impl<S: ?Sized, T: ?Sized> Id<S, T> {
     //==========================================================================
@@ -188,16 +180,15 @@ impl<S: ?Sized, T: ?Sized> Id<S, T> {
     }
 
     /// Converts `Id<S, T>` into `Id<T, S>` since type equality is symmetric.
-    pub fn sym(self) -> Id<T, S> { Id(PhantomData) }
+    pub fn sym(self) -> Id<T, S> { Self(PhantomData) }
 
     /// If you have proofs `Id<S, T>` and `Id<T, U>` you can conclude `Id<S, U>`
     /// since type equality is transitive.
-    pub fn trans<U: ?Sized>(self, _: Id<T, U>) -> Id<S, U> { Id(PhantomData) }
+    pub fn trans<U: ?Sized>(self, _: Id<T, U>) -> Id<S, U> { Self(PhantomData) }
 
     /// Casts a value of type `&S` to `&T` where `S == T`.
     ///
     /// ```rust
-    /// extern crate refl;
     /// use refl::*;
     ///
     /// fn main() {
@@ -220,7 +211,6 @@ impl<S: ?Sized, T: ?Sized> Id<S, T> {
     /// Casts a value of type `&S` to `&T` where `S == T`.
     /// 
     /// ```rust
-    /// extern crate refl;
     /// use refl::*;
     ///
     /// fn main() {
@@ -246,46 +236,48 @@ impl<S: ?Sized, T: ?Sized> Id<S, T> {
 }
 
 impl<X: ?Sized> Default for Id<X, X> {
-    fn default() -> Self { Id::REFL }
+    fn default() -> Self { Self::REFL }
 }
-
-// Id only consists of a PhantomData, which is a ZST.
-// ZSTs can always be sent across threads and shared between them.
-unsafe impl<A: ?Sized, B: ?Sized> Sync for Id<A, B> {}
-unsafe impl<A: ?Sized, B: ?Sized> Send for Id<A, B> {}
 
 impl<S: ?Sized, T: ?Sized> Copy for Id<S, T> {}
 
 impl<S: ?Sized, T: ?Sized> Clone for Id<S, T> {
-    fn clone(&self) -> Self { Id(PhantomData) }
-    fn clone_from(&mut self, _source: &Self) {}
+    fn clone(&self) -> Self { Self(PhantomData) }
+    fn clone_from(&mut self, _: &Self) {}
 }
 
-impl<S: ?Sized, T: ?Sized> std::fmt::Debug for Id<S, T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "Id({:?})", self.0)
+impl<S: ?Sized, T: ?Sized> fmt::Debug for Id<S, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("Id(_)")
     }
 }
 
-impl<S: ?Sized, T: ?Sized> std::hash::Hash for Id<S, T> {
-    fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {}
+impl<S: ?Sized, T: ?Sized> hash::Hash for Id<S, T> {
+    fn hash<H: hash::Hasher>(&self, _: &mut H) {}
 }
 
-impl<S: ?Sized, T: ?Sized> std::cmp::PartialEq for Id<S, T> {
-    fn eq(&self, _other: &Self) -> bool { true }
-    fn ne(&self, _other: &Self) -> bool { false }
+impl<S: ?Sized, T: ?Sized> cmp::PartialEq for Id<S, T> {
+    fn eq(&self, _: &Self) -> bool { true }
+    fn ne(&self, _: &Self) -> bool { false }
 }
 
-impl<S: ?Sized, T: ?Sized> std::cmp::Eq for Id<S, T> {}
+impl<S: ?Sized, T: ?Sized> cmp::Eq for Id<S, T> {}
 
-impl<S: ?Sized, T: ?Sized> std::cmp::PartialOrd for Id<S, T> {
-    fn partial_cmp(&self, _other: &Self) -> Option<std::cmp::Ordering> {
-        Some(std::cmp::Ordering::Equal)
+impl<S: ?Sized, T: ?Sized> cmp::PartialOrd for Id<S, T> {
+    fn partial_cmp(&self, _: &Self) -> Option<cmp::Ordering> {
+        Some(cmp::Ordering::Equal)
     }
 }
 
-impl<S: ?Sized, T: ?Sized> std::cmp::Ord for Id<S, T> {
-    fn cmp(&self, _other: &Self) -> std::cmp::Ordering {
-        std::cmp::Ordering::Equal
+impl<S: ?Sized, T: ?Sized> cmp::Ord for Id<S, T> {
+    fn cmp(&self, _other: &Self) -> cmp::Ordering {
+        cmp::Ordering::Equal
     }
+}
+
+#[cfg(test)]
+#[test]
+fn checks() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<Id<*mut u8, *mut u8>>();
 }
