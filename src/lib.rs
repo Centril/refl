@@ -7,6 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#![no_std]
+
 //! Provides a `refl` encoding which you can use to provide a proof
 //! witness that one type is equivalent (identical) to another type.
 //! This can be used to encode a subset of what GADTs allow you to in Haskell.

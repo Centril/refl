@@ -2,6 +2,7 @@
 
 - Migrated to edition 2018. Rust 1.32 is now required.
 - `refl` is now a `const fn`.
+- `#![no_std]` is unconditionally applied and requires cargo features.
 
 ## 0.1.3
 
