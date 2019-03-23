@@ -1,3 +1,8 @@
+## 0.2.0
+
+- Migrated to edition 2018. Rust 1.32 is now required.
+- `refl` is now a `const fn`.
+
 ## 0.1.3
 
 - Relaxed bounds on various implemented traits for `Id<A, B>`.
