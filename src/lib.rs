@@ -180,11 +180,11 @@ impl<S: ?Sized, T: ?Sized> Id<S, T> {
     }
 
     /// Converts `Id<S, T>` into `Id<T, S>` since type equality is symmetric.
-    pub fn sym(self) -> Id<T, S> { Self(PhantomData) }
+    pub fn sym(self) -> Id<T, S> { Id(PhantomData) }
 
     /// If you have proofs `Id<S, T>` and `Id<T, U>` you can conclude `Id<S, U>`
     /// since type equality is transitive.
-    pub fn trans<U: ?Sized>(self, _: Id<T, U>) -> Id<S, U> { Self(PhantomData) }
+    pub fn trans<U: ?Sized>(self, _: Id<T, U>) -> Id<S, U> { Id(PhantomData) }
 
     /// Casts a value of type `&S` to `&T` where `S == T`.
     ///
