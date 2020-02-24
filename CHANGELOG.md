@@ -1,3 +1,8 @@
+## 0.2.1
+
+- A plugged rustc bug would stop the crate from compiling.
+  This has been fixed in this release.
+
 ## 0.2.0
 
 - Migrated to edition 2018. Rust 1.32 is now required.
